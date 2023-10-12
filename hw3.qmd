@@ -1,0 +1,242 @@
+---
+title: "hw3"
+format:
+  html:
+    embed-resources: true
+---
+1. Vision
+    a. Merge the two files to create a single Stata dataset, using the SEQN variable for merging. Keep only records which matched. Print our your total sample size, showing that it is now 6,980.
+        Converted the .xpt files to .dta files using the following code. Code helped designed by ChatGPT
+        ```{r, eval=FALSE}
+        library(foreign)
+        xpt <- foreign::read.xport("VIX_D.XPT")
+        foreign::write.dta(xpt, "vix.dta")
+        xpt <- foreign::read.xport("DEMO_D.XPT")
+        foreign::write.dta(xpt, "demo.dta")
+        ```
+        ```{stata, eval=FALSE}
+        use "\\tsclient\Remote Desktop Virtual Drive\Uploads\vix.dta"
+        merge 1:1 SEQN using "\\tsclient\Remote Desktop Virtual Drive\Uploads\demo.dta"
+        keep if _merge == 3
+        ```
+        Result                      Number of obs
+        -----------------------------------------
+        Not matched                         3,368
+        from master                         0  (_merge==1)
+        from using                      3,368  (_merge==2)
+
+        Matched                             6,980  (_merge==3)
+        -----------------------------------------
+        (3,368 observations deleted)
+    a. Without fitting any models, estimate the proportion of respondents within each 10-year age bracket (e.g. 0-9, 10-19, 20-29, ..., 120-130) who wear glasses/contact lenses for distance vision. Produce a nice table with the results.
+        ```{stata, eval=FALSE}
+        gen age_bracket = floor(RIDAGEMN/120) * 10
+        tab age_bracket VIQ220
+        ```
+        | age-bracket | 1 | 2 | 9 | Total |
+        |-------------|---|---|---|-------|
+        | 10 | 670 | 1,418 | 0 | 2,088 |
+        | 20 | 306 | 631 | 2 | 939 |
+        | 30 | 269 | 481 | 0 | 750 |
+        | 40 | 286 | 487 | 0 | 773 |
+        | 50 | 335 | 274 | 0 | 609 |
+        | 60 | 392 | 238 | 0 | 630 |
+        | 70 | 299 | 148 | 0 | 447 |
+        | 80 | 125 | 63 | 0 | 188 |
+        | Total | 2,682 | 3,740 | 2 | 6,424 |
+    a. Fit three logistic regression models predicting whether a respondent wears glasses/contact lenses for distance vision. Produce a table presenting the estimated odds ratios for the coefficients in each model, along with the sample size for the model, the pseudo-R^2, and AIC values.
+        1. age
+            ```{stata, eval=FALSE}
+            replace VIQ220 = 0 if VIQ220 == 2
+            logit VIQ220 RIDAGEMN
+            logit
+            estimate table, eform
+            ```            
+            Number of obs =  6,422 \
+            LR chi2(1)    = 411.03 \
+            Prob > chi2   = 0.0000 \ 
+            Log likelihood = -4158.3283 \
+            Pseudo R2     = 0.0471 \
+
+            | VIQ220 | Coefficient | Std. err. | z | P>z | [95% conf. interval] |
+            |--------|-------------|-----------|---|-----|----------------------|
+            | RIDAGEMN | .0020726 | .0001049 | 19.75 | 0.000 | .001867 .0022783 |
+            | _cons | -1.277757 | .0549695 | -23.24 | 0.000 | -1.385495 -1.170019 |
+
+            |    Variable |   Active    |
+            |-------------|-------------|
+            | RIDAGEMN |  1.0020748 |
+            | _cons |  .27866165 |
+
+        1. age, race, gender
+            ```{stata, eval=FALSE}
+            logit VIQ220 RIDAGEMN RIAGENDR i.RIDRETH1
+            logit
+            estimate table, eform
+            ```
+            Number of obs =  6,422 \
+            LR chi2(6)    = 610.73 \
+            Prob > chi2   = 0.0000 \
+            Log likelihood = -4058.4784 \
+            Pseudo R2     = 0.0700 \
+
+            | VIQ220 | Coefficient | Std. err. | z | P>z | [95% conf. interval] |
+            |--------|-------------|-----------|---|-----|----------------------|
+            | RIDAGEMN | .0019198 | ..0001096 | 17.52 | 0.000 | .0017051 .0021346 |
+            | RIAGENDR | .5121928 | .0535662 | 9.56 | 0.000 | .4072049 .6171806 |
+            | RIDRETH1 | | | | | |
+            | 2 | .1599431 | .1645233  |   0.97  | 0.331 |   -.1625167 .4824029 |
+            |3  |   .6727747  | .0704563   |  9.55 |  0.000   |  .5346829 .8108665|
+            |4  |    .272965 |  .0769072   |  3.55  | 0.000    | .1222297 .4237003|
+            | 5  |   .6699619   |.1362031   |  4.92   |0.000   |  .4030087 .936915|
+            | _cons |  -1.871539  | .0795773  | -23.52 |  0.000 |   -2.027508 -1.715571|
+
+
+            |    Variable |   Active    |
+            |-------------|-------------|
+             |   RIDAGEMN |  1.0019217  |
+              |  RIDRETH1 ||
+                |    2  |  1.1734441  |
+                 |   3  |  1.9596673  |
+                  |  4  |  1.3138542  |
+                 |   5  |  1.9541628  |
+              |  RIAGENDR |  1.6689468  |
+              |  _cons |  .15388663  |
+
+        1. age, race, gender, pir
+            ```{stata, eval=FALSE}
+            logit VIQ220 RIDAGEMN RIAGENDR i.RIDRETH1 INDFMPIR
+            logit
+            estimate table, eform
+            ```
+            Number of obs =  6,136 \
+            LR chi2(7)    = 600.51 \
+            Prob > chi2   = 0.0000 \
+            Log likelihood = -3875.2621 \
+            Pseudo R2     = 0.0719 \
+
+            | VIQ220 | Coefficient | Std. err.    |  z   | P>z    | [95% conf. interval]|
+            |--------|-------------|--------------|------|----------|----------------------|
+            |    RIDAGEMN |   .0018772  | .0001124   | 16.71  | 0.000    |  .001657    .0020974|
+            |   RIAGENDR |   .5236279 | .0548515|    9.55|  0.000|    .4161209    .631134|
+            |  RIDRETH1 |           |             |       |          |                     |
+            |        2  |   .1195164  | .1684993   |  0.71 |  0.478  |  -.2107363     .449769|
+            |        3  |   .5007481  | .0756932   |  6.62  | 0.000   |  .3523922    .6491039|
+            |        4  |   .2191439 |  .0795497   |  2.75  | 0.006    | .0632294    .3750585|
+            |        5  |   .5512785  | .1409702  |   3.91  | 0.000  |    .274982     |.827575|
+            |   INDFMPIR |   .1161052  | .0178754  |   6.50  | 0.000    |   .08107    .1511404|
+            |    _cons |  -2.574047  | .1224441 |  -21.02 |  0.000  |  -2.814033   -2.334061|
+
+
+            | Variable |   Active  |
+            |-------------|-------------|
+            |    RIDAGEMN |   1.001879  |
+             |   RIAGENDR |  1.6881409  |
+             |   RIDRETH1 ||
+            |        2  |  1.1269517  |
+             |       3  |  1.6499551  |
+             |       4  |  1.2450104  |
+              |      5  |  1.7354704  |
+              |  INDFMPIR |   1.123114  |
+              |  _cons |  .12868101  |
+
+    a. From the third model from the previous part, discuss whether the odds of men and women being wears of glasess/contact lenses for distance vision differs. Test whether the proportion of wearers of glasses/contact lenses for distance vision differs between men and women. Include the results of the test and its interpretation.
+        1. Being female is associated with higher odds of wearing corrective lenses in some capactity. This can be seen by the .5236279 value whose odds value of 1.68 shows increased odds of wearing corrective lenses if the person is female. 
+        ```{stata, eval=FALSE}
+        tabulate RIAGENDR VIQ220, chi2
+        ```
+        
+        |RIAGENDR |         0     |     1 |     Total|
+        |---------|---------------|-------|-----------|
+         |       1 |   |  2,014    |  1,181 |     3,195 |
+           |     2 |    | 1,766   |   1,584 |     3,350 |
+          |  Total |     3,780 |     2,765 |     6,545 |
+        Pearson chi2(1) =  71.3776   Pr = 0.000 \
+        Since the Chi-Squared value is so high, there is strong indication to suggest that there is association between gender and wearing glasses/contact lenses for distance vision.
+
+1. Sakila
+    a. Aside from English, what language is most common for films?
+        ```{sql, eval=FALSE}
+        select name, count(*) as count from film f join language l on f.language_id = l.language_id group by name order by count desc;
+        ```
+        English|1000 \
+        English is the only language for films. \ 
+        If there were other languages the following query would return non empty and give only the most used language: \
+        ```{sql, eval=FALSE}
+        select name, count(*) as "count" from film f join language l on f.language_id = l.language_id where name != "English" group by name order by "count" desc limit 1;
+        ```
+    a. What genre of movie is the most common in the data, and how many movies are of this genre?
+        i. Using R
+            ```{r}
+            film <- read.csv("film.csv")
+            film_category <- read.csv("film_category.csv")
+            category <- read.csv("category.csv")
+            film_category <- merge(film_category, category, by="category_id")
+            film_category <- merge(film_category, film, by="film_id")
+            table(film_category$name)
+            print(which.max(table(film_category$name)))
+            ```
+        i. Using SQL
+            ```{sql, eval=FALSE}
+            select name, count(*) as count from film f join film_category fc on f.film_id = fc.film_id join category c on fc.category_id = c.category_id group by name order by count desc limit 1;
+            ```
+            Sports|74
+    a. Identify which country or countries have exactly 9 customers.
+        i. Using R
+            ```{r}
+            customer <- read.csv("customer.csv")
+            customer <- customer[,1:7]
+            address <- read.csv("address.csv")
+            address <- address[,1:5]
+            city <- read.csv("city.csv")
+            country <- read.csv("country.csv")
+            customer <- merge(customer, address, by="address_id")
+            customer <- merge(customer, city, by="city_id")
+            customer <- merge(customer, country, by="country_id")
+            print(which(table(customer$country) == 9))
+            ```
+        i. Using SQL
+            ```{sql, eval=FALSE}
+            select country, count(*) as count from customer c join address a on c.address_id = a.address_id join city ci on a.city_id = ci.city_id join country co on ci.country_id = co.country_id group by country having count = 9;
+            ```
+            United Kingdom|9
+1. US Records
+    a. What proportion of email addresses are hosted at a domain with TLD “.net”? 
+        ```{r}
+        d <- read.csv("us-500.csv")
+        sum(grepl("@.*\\.net$", d$email))/nrow(d)
+        ```
+    a. What proportion of email addresses have at least one non alphanumeric character in them? (Excluding the required “@” and “.” found in every email address.)
+        ```{r}
+        sum(grepl("[^[:alnum:]@.]", d$email))/nrow(d)
+        ```
+    a. What is the most common area code amongst all phone numbers?
+        ```{r}
+        area_codes_p1 <- gsub("^(\\d{3}).*", "\\1", d$phone1)
+        area_codes_p2 <- gsub("^(\\d{3}).*", "\\1", d$phone2)
+        area_codes <- c(area_codes_p1, area_codes_p2)
+        table(area_codes)
+        as.numeric(names(which.max(table(area_codes))))
+        ```
+    a. Produce a histogram of the log of the apartment numbers for all addresses
+        ```{r}
+        library(stringr)
+        apt_nums <- str_extract(d$address, "#(\\d+)$")
+        apt_nums <- na.omit(apt_nums)
+        apt_nums <- as.numeric(gsub("#", "", apt_nums))
+        hist(log(apt_nums))
+        ```
+    a. Benford’s law is an observation about the distribution of the leading digit of real numerical data. Examine whether the apartment numbers appear to follow Benford’s law. Do you think the apartment numbers would pass as real data?
+        ```{r}
+        first_digits <- as.numeric(substr(apt_nums, 1, 1))
+        hist(first_digits)
+        ```
+        This does not appear to follow Benford's law. The distribution is not logarithmic, and the 9 appears the second most often instead of the least often.
+    a. 
+        ```{r}
+        address_delimited <- unlist(strsplit(d$address, " "))   
+        last_digits <- sub(" .*", "", d$address)
+        last_digits <- as.numeric(substring(last_digits, nchar(last_digits)))
+        hist(last_digits)
+        ```
+        This does not appear to follow Benford's law. The distribution is not logarithmic, and the 9 appears the second most often instead of the least often.
